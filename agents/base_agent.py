@@ -1,0 +1,132 @@
+import asyncio
+import json
+import logging
+import re
+import requests
+
+from config import OPENROUTER_API_KEY, OPENROUTER_URL
+import bot.memory as memory
+import bot.vector_memory as vmem
+import bot.planning as planning
+from bot.self_healing import get_breaker, retry
+from bot.event_bus import bus, Events
+
+logger = logging.getLogger(__name__)
+
+# Паттерн для вызова инструмента агентом
+# Агент пишет: [TOOL:tool_name("arg1", "arg2")]
+TOOL_PATTERN = re.compile(r'\[TOOL:(\w+)\(([^)]*)\)\]')
+
+
+class BaseAgent:
+    def __init__(self, name: str, role_prompt: str, model: str):
+        self.name        = name
+        self.role_prompt = role_prompt
+        self.model       = model
+        self._breaker    = get_breaker(name)
+
+    @retry(max_attempts=3, backoff=2.0)
+    async def respond(self, message: str, history: list = None) -> str:
+        if not self._breaker.can_call():
+            logger.warning(f"[{self.name}] Circuit OPEN — fallback")
+            return f"⚠️ _{self.name} перегружен, попробуй позже._"
+
+        # Контекст
+        from bot.plugins.registry import registry
+        team_memory   = memory.as_context()
+        goals_context = planning.build_goals_context()
+        vector_ctx    = vmem.build_context(message)
+        tools_context = registry.list_for_agent()
+
+        system = self.role_prompt
+        extras = [team_memory, goals_context, vector_ctx, tools_context]
+        for extra in extras:
+            if extra:
+                system += f"\n\n{extra}"
+
+        if tools_context:
+            system += (
+                "\n\nЕсли нужно использовать инструмент — вставь в ответ:\n"
+                "[TOOL:tool_name(\"аргумент\")]\n"
+                "Система выполнит и вернёт результат."
+            )
+
+        messages = [{"role": "system", "content": system}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": message})
+
+        loop = asyncio.get_event_loop()
+        try:
+            result = await loop.run_in_executor(None, self._call_api, messages)
+            self._breaker.on_success()
+
+            # Обрабатываем вызовы инструментов
+            result = await self._process_tools(result)
+
+            # Сохраняем в vector memory
+            vmem.store_memory(
+                f"[{self.name}] {result[:200]}",
+                source=f"agent_{self.name.split()[0].lower()}",
+            )
+
+            # Публикуем событие
+            await bus.publish(Events.AGENT_RESPONDED, {
+                "agent":    self.name,
+                "message":  message[:100],
+                "response": result[:100],
+            })
+
+            return result
+
+        except Exception as e:
+            self._breaker.on_failure(e)
+            raise
+
+    async def _process_tools(self, text: str) -> str:
+        """Находит вызовы инструментов в тексте и выполняет их."""
+        from bot.plugins.registry import registry
+
+        matches = TOOL_PATTERN.findall(text)
+        if not matches:
+            return text
+
+        result = text
+        for tool_name, args_str in matches:
+            try:
+                # Парсим аргументы
+                args = []
+                if args_str.strip():
+                    for arg in args_str.split(","):
+                        arg = arg.strip().strip('"\'')
+                        args.append(arg)
+
+                tool_result = await registry.call(tool_name, *args)
+                placeholder = f'[TOOL:{tool_name}({args_str})]'
+                result = result.replace(
+                    placeholder,
+                    f"\n\n🔧 *{tool_name}:*\n{tool_result}\n"
+                )
+                logger.info(f"[{self.name}] Tool {tool_name} выполнен")
+            except Exception as e:
+                logger.error(f"[{self.name}] Tool error: {e}")
+
+        return result
+
+    def _call_api(self, messages: list) -> str:
+        response = requests.post(
+            OPENROUTER_URL,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type":  "application/json",
+            },
+            json={
+                "model":       self.model,
+                "messages":    messages,
+                "max_tokens":  400,
+                "temperature": 0.85,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()

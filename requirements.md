@@ -1,0 +1,1 @@
+python-telegram-bot==21.3requests==2.32.3python-dotenv==1.0.1gitpython==3.1.41pytest==8.1.1fastapi==0.111.0uvicorn==0.29.0chromadb==0.6.0numpy<2.0websockets==12.0duckduckgo-search==3.9.3httpx==0.27.0docker==7.0.0playwright==1.44.0
