@@ -97,8 +97,14 @@ def load_agents(agent_names: list[str]) -> None:
             module = importlib.import_module(module_path)
             cls    = getattr(module, class_name)
             agent  = cls()
-            _agents[agent.name] = agent
-            logger.info(f"✅ Агент загружен: {agent.name}")
+
+            # Регистрируем под ДВУМЯ именами:
+            # "developer" — для registry health check
+            # "Дэн (Dev)" — для respond endpoint
+            _agents[name]       = agent  # "developer"
+            _agents[agent.name] = agent  # "Дэн (Dev)"
+
+            logger.info(f"✅ Агент загружен: {agent.name} (ключ: {name})")
         except Exception as e:
             logger.error(f"❌ Не удалось загрузить {name}: {e}")
 

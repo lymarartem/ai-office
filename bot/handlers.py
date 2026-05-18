@@ -454,6 +454,7 @@ def make_sandbox_handler() -> CommandHandler:
         )
 
     return CommandHandler("sandbox", sandbox_cmd)
+
 def make_browse_handler(agents_and_bots: list) -> CommandHandler:
     """/browse <url> — Browser Agent открывает страницу и присылает скриншот."""
     _, browser_bot = agents_and_bots[5]

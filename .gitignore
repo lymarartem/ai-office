@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+chroma_db/
+*.bin
+team_memory.json
+proposals.json
+goals.json
+permissions.json
+patches/
+backups/
+sandbox/
