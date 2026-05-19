@@ -18,19 +18,19 @@ BROWSER_BOT_TOKEN           = os.getenv("BROWSER_BOT_TOKEN")
 GROUP_CHAT_ID               = os.getenv("GROUP_CHAT_ID")
 OWNER_TELEGRAM_ID           = os.getenv("OWNER_TELEGRAM_ID")
 DASHBOARD_PORT              = int(os.getenv("DASHBOARD_PORT", "8080"))
-DISCUSSION_INTERVAL_MINUTES = int(os.getenv("DISCUSSION_INTERVAL_MINUTES", "30"))
+DISCUSSION_INTERVAL_MINUTES = int(os.getenv("DISCUSSION_INTERVAL_MINUTES", "180"))
 
 # GitHub Issues — опционально (если не задано, команда /issue сообщит об этом)
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO  = os.getenv("GITHUB_REPO", "")  # формат: owner/repo
 
 OPENROUTER_URL  = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_CEO       = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_DEVELOPER = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_MARKETING = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_DESIGNER  = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_TERMINAL  = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_BROWSER   = "meta-llama/llama-3.3-70b-instruct:free"
+MODEL_CEO       = "deepseek/deepseek-chat-v3-0324:free"
+MODEL_DEVELOPER = "deepseek/deepseek-chat-v3-0324:free"
+MODEL_MARKETING = "deepseek/deepseek-chat-v3-0324:free"
+MODEL_DESIGNER  = "deepseek/deepseek-chat-v3-0324:free"
+MODEL_TERMINAL  = "deepseek/deepseek-chat-v3-0324:free"
+MODEL_BROWSER   = "deepseek/deepseek-chat-v3-0324:free"
 
 _required = {
     "OPENROUTER_API_KEY":   OPENROUTER_API_KEY,
