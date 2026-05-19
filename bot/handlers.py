@@ -780,6 +780,34 @@ def make_caveman_handler() -> CommandHandler:
     return CommandHandler("caveman", caveman_cmd)
 
 
+def make_stats_handler(analyst) -> CommandHandler:
+
+    async def stats_cmd(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        if update.message is None:
+            return
+        import bot.metrics as metrics
+
+        m = metrics.collect()
+        await update.message.reply_text(
+            metrics.format_report(m), parse_mode="Markdown"
+        )
+
+        # Аналитический комментарий — опционально, не ломает отчёт при сбое
+        try:
+            commentary = await analyst.respond(
+                message=metrics.build_analysis_prompt(m)
+            )
+            await update.message.reply_text(
+                f"📈 *Ада (Analyst):* {commentary}", parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"[Stats] Analyst error: {e}")
+
+    return CommandHandler("stats", stats_cmd)
+
+
 def make_queue_handler(task_queue) -> CommandHandler:
 
     async def queue_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
