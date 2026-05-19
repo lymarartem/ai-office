@@ -51,6 +51,11 @@ class BaseAgent:
                 "Система выполнит и вернёт результат."
             )
 
+        # Caveman Mode — режим экономии токенов
+        from bot.caveman import caveman
+        if caveman.is_on():
+            system += f"\n\n{caveman.prompt()}"
+
         messages = [{"role": "system", "content": system}]
         if history:
             messages.extend(history)
@@ -58,11 +63,16 @@ class BaseAgent:
 
         loop = asyncio.get_event_loop()
         try:
-            result = await loop.run_in_executor(None, self._call_api, messages)
+            result = await loop.run_in_executor(
+                None, self._call_api, messages, caveman.max_tokens()
+            )
             self._breaker.on_success()
 
             # Обрабатываем вызовы инструментов
             result = await self._process_tools(result)
+
+            # Статистика режима экономии
+            caveman.record(result)
 
             # Сохраняем в vector memory
             vmem.store_memory(
@@ -113,7 +123,7 @@ class BaseAgent:
 
         return result
 
-    def _call_api(self, messages: list) -> str:
+    def _call_api(self, messages: list, max_tokens: int = 400) -> str:
         response = requests.post(
             OPENROUTER_URL,
             headers={
@@ -123,7 +133,7 @@ class BaseAgent:
             json={
                 "model":       self.model,
                 "messages":    messages,
-                "max_tokens":  400,
+                "max_tokens":  max_tokens,
                 "temperature": 0.85,
             },
             timeout=30,

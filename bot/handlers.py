@@ -742,6 +742,44 @@ def make_filegraph_handler() -> CommandHandler:
     return CommandHandler("filegraph", file_graph_cmd)
 
 
+def make_caveman_handler() -> CommandHandler:
+
+    async def caveman_cmd(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        if update.message is None:
+            return
+        from bot.caveman import caveman
+        args = [a.lower() for a in (context.args or [])]
+
+        if args and args[0] == "stats":
+            s = caveman.stats()
+            await update.message.reply_text(
+                f"📊 *Caveman — статистика*\n"
+                f"Режим: `{s['label']}`\n"
+                f"Ответов в режиме: `{s['calls']}`\n"
+                f"Средний ответ: `{s['avg_tokens']}` токенов\n"
+                f"Экономия (оценка): `~{s['saved_est']}` токенов",
+                parse_mode="Markdown",
+            )
+            return
+
+        if args and args[0] in ("off", "lite", "full", "ultra"):
+            caveman.set_level(args[0])
+        else:
+            caveman.toggle()
+
+        state = "🟢 включён" if caveman.is_on() else "⚪ выключен"
+        await update.message.reply_text(
+            f"🪨 *Caveman Mode* {state}\n"
+            f"Уровень: `{caveman.label()}`\n\n"
+            f"_Команды:_ /caveman `off|lite|full|ultra` · /caveman `stats`",
+            parse_mode="Markdown",
+        )
+
+    return CommandHandler("caveman", caveman_cmd)
+
+
 def make_queue_handler(task_queue) -> CommandHandler:
 
     async def queue_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
