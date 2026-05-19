@@ -10,6 +10,7 @@
 
 import asyncio
 import logging
+import time
 
 from bot.event_bus import bus, Events
 from bot.file_graph import graph
@@ -24,7 +25,9 @@ _CRITICAL = {
     "bot/event_bus.py",
     "requirements.txt",
 }
-_FLUSH_DELAY = 6.0  # секунд — окно накопления событий
+_FLUSH_DELAY   = 6.0    # секунд — окно накопления событий
+_AUTO_TEST     = True   # авто-прогон тестов при изменении кода
+_TEST_COOLDOWN = 90.0   # не чаще, чем раз в N секунд
 
 
 class FileReactor:
@@ -33,6 +36,7 @@ class FileReactor:
         self._chat_id: int | None = None
         self._pending: dict[str, dict] = {}
         self._flush_scheduled = False
+        self._last_test = 0.0
 
     def setup(self, bot, chat_id: int) -> None:
         """Подключает реактор: bot — экземпляр Telegram-бота, chat_id — группа."""
@@ -61,6 +65,8 @@ class FileReactor:
         self._flush_scheduled = False
         if pending and self._bot and self._chat_id:
             await self._send_summary(pending)
+            if _AUTO_TEST:
+                await self._run_tests_if_due()
 
     async def _send_summary(self, pending: dict[str, dict]) -> None:
         icons = {"modified": "✏️", "created": "🆕", "deleted": "🗑"}
@@ -96,6 +102,47 @@ class FileReactor:
                 chat_id=self._chat_id,
                 text="\n".join(lines),
                 parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error(f"[FileReactor] Ошибка отправки: {e}")
+
+    async def _run_tests_if_due(self) -> None:
+        """Прогон тестов после изменения кода. С защитой от частых запусков."""
+        now = time.time()
+        if now - self._last_test < _TEST_COOLDOWN:
+            logger.info("[FileReactor] Тесты пропущены — cooldown")
+            return
+        self._last_test = now
+
+        try:
+            from bot.pipeline import run_tests
+        except Exception as e:
+            logger.error(f"[FileReactor] run_tests недоступен: {e}")
+            return
+
+        await self._safe_send("🧪 *Terminal* — изменился код, прогоняю тесты...")
+
+        loop = asyncio.get_running_loop()
+        try:
+            passed, output = await loop.run_in_executor(None, run_tests, ".")
+        except Exception as e:
+            logger.error(f"[FileReactor] Ошибка тестов: {e}")
+            await self._safe_send(f"⚠️ Не удалось запустить тесты: `{e}`")
+            return
+
+        await bus.publish(Events.TESTS_COMPLETED, {
+            "passed": passed,
+            "output": output[:200],
+        })
+        icon = "✅ прошли" if passed else "❌ упали"
+        await self._safe_send(
+            f"🧪 *Тесты {icon}*\n```\n{output[:300]}\n```"
+        )
+
+    async def _safe_send(self, text: str) -> None:
+        try:
+            await self._bot.send_message(
+                chat_id=self._chat_id, text=text, parse_mode="Markdown"
             )
         except Exception as e:
             logger.error(f"[FileReactor] Ошибка отправки: {e}")
