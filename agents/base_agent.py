@@ -4,7 +4,7 @@ import logging
 import re
 import requests
 
-from config import OPENROUTER_API_KEY, OPENROUTER_URL
+from config import GROQ_API_KEY, LLM_API_URL
 import bot.memory as memory
 import bot.vector_memory as vmem
 import bot.planning as planning
@@ -125,9 +125,9 @@ class BaseAgent:
 
     def _call_api(self, messages: list, max_tokens: int = 400) -> str:
         response = requests.post(
-            OPENROUTER_URL,
+            LLM_API_URL,
             headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type":  "application/json",
             },
             json={

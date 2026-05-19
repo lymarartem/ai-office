@@ -8,7 +8,7 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY          = os.getenv("OPENROUTER_API_KEY")
+GROQ_API_KEY                = os.getenv("GROQ_API_KEY")
 CEO_BOT_TOKEN               = os.getenv("CEO_BOT_TOKEN")
 DEVELOPER_BOT_TOKEN         = os.getenv("DEVELOPER_BOT_TOKEN")
 MARKETING_BOT_TOKEN         = os.getenv("MARKETING_BOT_TOKEN")
@@ -24,16 +24,17 @@ DISCUSSION_INTERVAL_MINUTES = int(os.getenv("DISCUSSION_INTERVAL_MINUTES", "180"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO  = os.getenv("GITHUB_REPO", "")  # формат: owner/repo
 
-OPENROUTER_URL  = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_CEO       = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_DEVELOPER = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_MARKETING = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_DESIGNER  = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_TERMINAL  = "meta-llama/llama-3.3-70b-instruct:free"
-MODEL_BROWSER   = "meta-llama/llama-3.3-70b-instruct:free"
+# LLM-бэкенд — Groq (OpenAI-совместимый API)
+LLM_API_URL     = "https://api.groq.com/openai/v1/chat/completions"
+MODEL_CEO       = "llama-3.3-70b-versatile"
+MODEL_DEVELOPER = "llama-3.3-70b-versatile"
+MODEL_MARKETING = "llama-3.3-70b-versatile"
+MODEL_DESIGNER  = "llama-3.3-70b-versatile"
+MODEL_TERMINAL  = "llama-3.3-70b-versatile"
+MODEL_BROWSER   = "llama-3.3-70b-versatile"
 
 _required = {
-    "OPENROUTER_API_KEY":   OPENROUTER_API_KEY,
+    "GROQ_API_KEY":         GROQ_API_KEY,
     "CEO_BOT_TOKEN":        CEO_BOT_TOKEN,
     "DEVELOPER_BOT_TOKEN":  DEVELOPER_BOT_TOKEN,
     "MARKETING_BOT_TOKEN":  MARKETING_BOT_TOKEN,
