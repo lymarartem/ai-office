@@ -21,12 +21,12 @@ DASHBOARD_PORT              = int(os.getenv("DASHBOARD_PORT", "8080"))
 DISCUSSION_INTERVAL_MINUTES = int(os.getenv("DISCUSSION_INTERVAL_MINUTES", "30"))
 
 OPENROUTER_URL  = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_CEO       = "openai/gpt-4o"
-MODEL_DEVELOPER = "openai/gpt-4o-mini"
-MODEL_MARKETING = "openai/gpt-4o-mini"
-MODEL_DESIGNER  = "openai/gpt-4o-mini"
-MODEL_TERMINAL  = "openai/gpt-4o"
-MODEL_BROWSER   = "openai/gpt-4o"
+MODEL_CEO       = "meta-llama/llama-3.3-70b-instruct:free"
+MODEL_DEVELOPER = "meta-llama/llama-3.3-70b-instruct:free"
+MODEL_MARKETING = "meta-llama/llama-3.3-70b-instruct:free"
+MODEL_DESIGNER  = "meta-llama/llama-3.3-70b-instruct:free"
+MODEL_TERMINAL  = "meta-llama/llama-3.3-70b-instruct:free"
+MODEL_BROWSER   = "meta-llama/llama-3.3-70b-instruct:free"
 
 _required = {
     "OPENROUTER_API_KEY":   OPENROUTER_API_KEY,
