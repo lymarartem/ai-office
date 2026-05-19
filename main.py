@@ -34,6 +34,7 @@ from bot.handlers import (
     make_filegraph_handler,
     make_caveman_handler,
     make_stats_handler,
+    make_issue_handler,
 )
 from bot.file_graph import start_file_graph_watcher
 from bot.file_reactor import reactor as file_reactor
@@ -135,6 +136,7 @@ async def main() -> None:
     ceo_app.add_handler(make_filegraph_handler())
     ceo_app.add_handler(make_caveman_handler())
     ceo_app.add_handler(make_stats_handler(analyst))
+    ceo_app.add_handler(make_issue_handler())
     ceo_app.add_handler(make_queue_handler(queue))
     ceo_app.add_handler(make_proposals_handler())
     ceo_app.add_handler(make_clear_handler())

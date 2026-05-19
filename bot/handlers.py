@@ -814,6 +814,76 @@ def make_stats_handler(analyst) -> CommandHandler:
     return CommandHandler("stats", stats_cmd)
 
 
+def make_issue_handler() -> CommandHandler:
+
+    async def issue_cmd(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        if update.message is None:
+            return
+        import bot.github_issues as gh
+
+        text = " ".join(context.args or []).strip()
+
+        if not gh.is_configured():
+            await update.message.reply_text(
+                "⚠️ GitHub не настроен.\n"
+                "Добавь в Render → Environment: GITHUB_TOKEN и "
+                "GITHUB_REPO (формат owner/repo)."
+            )
+            return
+
+        loop = asyncio.get_running_loop()
+
+        # /issue list — открытые задачи
+        if text.lower() == "list":
+            res = await loop.run_in_executor(None, gh.list_open_issues, 7)
+            if not res["ok"]:
+                await update.message.reply_text(f"❌ {res['error']}")
+                return
+            if not res["issues"]:
+                await update.message.reply_text("📋 Открытых issue нет.")
+                return
+            lines = ["📋 Открытые issue:"]
+            for i in res["issues"]:
+                lines.append(f"#{i['number']} — {i['title']}\n{i['url']}")
+            await update.message.reply_text("\n\n".join(lines))
+            return
+
+        # /issue без текста — подсказка
+        if not text:
+            await update.message.reply_text(
+                "📋 GitHub Issues\n"
+                "/issue <описание> — создать задачу\n"
+                "/issue list — список открытых"
+            )
+            return
+
+        # /issue <текст> — создать
+        title  = text[:120]
+        author = (update.message.from_user.first_name
+                  if update.message.from_user else "AI Office")
+        body = (
+            "Создано из AI Office (Telegram).\n\n"
+            f"**Автор:** {author}\n"
+            f"**Запрос:** {text}\n"
+        )
+        await update.message.reply_text("📋 Создаю issue в GitHub...")
+        res = await loop.run_in_executor(None, gh.create_issue, title, body)
+        if res["ok"]:
+            await update.message.reply_text(
+                f"✅ Issue #{res['number']} создан:\n{res['url']}"
+            )
+            from bot.event_bus import bus as _bus, Events as _Events
+            await _bus.publish(_Events.TASK_CREATED, {
+                "reason": "GitHub issue", "url": res["url"],
+            })
+        else:
+            await update.message.reply_text(f"❌ Не удалось: {res['error']}")
+
+    return CommandHandler("issue", issue_cmd)
+
+
 def make_queue_handler(task_queue) -> CommandHandler:
 
     async def queue_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

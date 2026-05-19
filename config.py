@@ -20,6 +20,10 @@ OWNER_TELEGRAM_ID           = os.getenv("OWNER_TELEGRAM_ID")
 DASHBOARD_PORT              = int(os.getenv("DASHBOARD_PORT", "8080"))
 DISCUSSION_INTERVAL_MINUTES = int(os.getenv("DISCUSSION_INTERVAL_MINUTES", "30"))
 
+# GitHub Issues — опционально (если не задано, команда /issue сообщит об этом)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_REPO  = os.getenv("GITHUB_REPO", "")  # формат: owner/repo
+
 OPENROUTER_URL  = "https://openrouter.ai/api/v1/chat/completions"
 MODEL_CEO       = "meta-llama/llama-3.3-70b-instruct:free"
 MODEL_DEVELOPER = "meta-llama/llama-3.3-70b-instruct:free"
