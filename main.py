@@ -33,6 +33,7 @@ from bot.handlers import (
     make_filegraph_handler,
 )
 from bot.file_graph import start_file_graph_watcher
+from bot.file_reactor import reactor as file_reactor
 from bot.autonomous import run_autonomous_loop
 from bot.task_queue import queue
 from bot.dashboard import start_server, app as dashboard_app
@@ -155,9 +156,10 @@ async def main() -> None:
             await bus.publish(Events.AGENT_ONLINE, {"agent": name})
             logger.info(f"✅ {name} — онлайн")
 
-        # Фаза D — Live File Graph
+        # Фаза D — Live File Graph + реакция команды на изменения
         loop = asyncio.get_running_loop()
         start_file_graph_watcher(".", loop)
+        file_reactor.setup(ceo_app.bot, GROUP_CHAT_ID)
 
         monitor.register(
             "autonomous",
