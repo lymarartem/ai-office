@@ -30,7 +30,9 @@ from bot.handlers import (
     make_clear_memory_handler,
     set_terminal_bot,
     make_browse_handler,
+    make_filegraph_handler,
 )
+from bot.file_graph import start_file_graph_watcher
 from bot.autonomous import run_autonomous_loop
 from bot.task_queue import queue
 from bot.dashboard import start_server, app as dashboard_app
@@ -125,6 +127,7 @@ async def main() -> None:
     ceo_app.add_handler(make_permissions_handler())
     ceo_app.add_handler(make_myrole_handler())
     ceo_app.add_handler(make_git_handler())
+    ceo_app.add_handler(make_filegraph_handler())
     ceo_app.add_handler(make_queue_handler(queue))
     ceo_app.add_handler(make_proposals_handler())
     ceo_app.add_handler(make_clear_handler())
@@ -151,6 +154,10 @@ async def main() -> None:
             await app.start()
             await bus.publish(Events.AGENT_ONLINE, {"agent": name})
             logger.info(f"✅ {name} — онлайн")
+
+        # Фаза D — Live File Graph
+        loop = asyncio.get_running_loop()
+        start_file_graph_watcher(".", loop)
 
         monitor.register(
             "autonomous",

@@ -24,6 +24,13 @@ class Events:
     SANDBOX_EXECUTED     = "sandbox_executed"
     AGENT_ONLINE         = "agent_online"
     DISCUSSION_STARTED   = "discussion_started"
+    # Фаза D — Live File Graph
+    FILE_CHANGED         = "file_changed"
+    FILE_CREATED         = "file_created"
+    FILE_DELETED         = "file_deleted"
+    TESTS_COMPLETED      = "tests_completed"
+    ERROR_FOUND          = "error_found"
+    TASK_CREATED         = "task_created"
 
 
 class EventBus:
@@ -76,6 +83,19 @@ class EventBus:
                 except Exception:
                     dead.add(ws)
             self._ws_clients -= dead
+
+    def publish_threadsafe(self, loop, event_type: str, data: dict = None) -> None:
+        """Публикация события из другого потока (например, watchdog Observer).
+
+        Шина асинхронная и живёт в основном event loop. Сторонние потоки
+        не могут вызвать await publish() напрямую — используют этот мост.
+        """
+        try:
+            asyncio.run_coroutine_threadsafe(
+                self.publish(event_type, data), loop
+            )
+        except Exception as e:
+            logger.error(f"[EventBus] threadsafe publish error: {e}")
 
     def register_ws(self, ws) -> None:
         self._ws_clients.add(ws)

@@ -727,6 +727,21 @@ def make_git_handler() -> CommandHandler:
     return CommandHandler("git", git_status)
 
 
+def make_filegraph_handler() -> CommandHandler:
+
+    async def file_graph_cmd(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        if update.message is None:
+            return
+        from bot.file_graph import graph
+        await update.message.reply_text(
+            graph.format_summary(), parse_mode="Markdown"
+        )
+
+    return CommandHandler("filegraph", file_graph_cmd)
+
+
 def make_queue_handler(task_queue) -> CommandHandler:
 
     async def queue_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
