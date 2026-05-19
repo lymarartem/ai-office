@@ -58,6 +58,7 @@ def collect() -> dict:
         for n, cb in all_breakers().items():
             breakers[n] = {
                 "status":   cb.status,
+                "healthy":  "closed" in str(cb.status).lower(),
                 "calls":    cb.total_calls,
                 "failures": cb.total_failures,
             }
@@ -124,11 +125,11 @@ def format_report(m: dict) -> str:
 
     br = m["breakers"]
     if br:
-        bad = [n for n, b in br.items() if b["status"] != "CLOSED"]
+        bad = [n for n, b in br.items() if not b.get("healthy", True)]
         if bad:
             lines.append(f"*Здоровье:* ⚠️ проблемы — {', '.join(bad)}")
         else:
-            lines.append(f"*Здоровье:* 🟢 все {len(br)} breakers в норме")
+            lines.append(f"*Здоровье:* 🟢 все {len(br)} агентов в норме")
 
     return "\n".join(lines)
 
