@@ -789,19 +789,25 @@ def make_stats_handler(analyst) -> CommandHandler:
             return
         import bot.metrics as metrics
 
+        async def safe_reply(text: str) -> None:
+            """Пробует Markdown, при ошибке парсинга шлёт обычным текстом."""
+            try:
+                await update.message.reply_text(text, parse_mode="Markdown")
+            except Exception:
+                try:
+                    await update.message.reply_text(text)
+                except Exception as e:
+                    logger.error(f"[Stats] reply error: {e}")
+
         m = metrics.collect()
-        await update.message.reply_text(
-            metrics.format_report(m), parse_mode="Markdown"
-        )
+        await safe_reply(metrics.format_report(m))
 
         # Аналитический комментарий — опционально, не ломает отчёт при сбое
         try:
             commentary = await analyst.respond(
                 message=metrics.build_analysis_prompt(m)
             )
-            await update.message.reply_text(
-                f"📈 *Ада (Analyst):* {commentary}", parse_mode="Markdown"
-            )
+            await safe_reply(f"📈 Ада (Analyst): {commentary}")
         except Exception as e:
             logger.error(f"[Stats] Analyst error: {e}")
 

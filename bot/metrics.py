@@ -97,8 +97,11 @@ def format_report(m: dict) -> str:
 
     if m["events_total"]:
         lines.append(f"*События:* всего `{m['events_total']}`")
-        parts = " · ".join(f"{t}:{c}" for t, c in m["by_type"].items())
-        lines.append(f"_{parts}_")
+        # подчёркивания в именах событий ломают Markdown — заменяем на пробел
+        parts = " · ".join(
+            f"{t.replace('_', ' ')}:{c}" for t, c in m["by_type"].items()
+        )
+        lines.append(parts)
         lines.append("")
 
     t = m["tests"]
