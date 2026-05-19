@@ -1,0 +1,21 @@
+services:
+  - type: worker
+    name: ai-office
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: CEO_BOT_TOKEN
+        sync: false
+      - key: MARKETING_BOT_TOKEN
+        sync: false
+      - key: DEV_BOT_TOKEN
+        sync: false
+      - key: DESIGN_BOT_TOKEN
+        sync: false
+      - key: GROUP_CHAT_ID
+        sync: false
+      - key: OWNER_TELEGRAM_ID
+        sync: false
