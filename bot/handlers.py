@@ -61,15 +61,17 @@ async def _ceo_route(ceo_agent, message: str) -> dict:
         f"Сообщение: {message}\n\n"
         f"Ты CEO. Реши:\n"
         f"1. Нужно ли уточнение?\n"
-        f"2. Каких агентов вызвать? (developer, marketing, designer, terminal)\n\n"
+        f"2. Каких агентов вызвать? (ceo, developer, marketing, designer, terminal)\n\n"
         f"Правила:\n"
+        f"- Обращение к команде / стратегия / общий вопрос → ceo первым + остальные\n"
+        f"- Представление / приветствие / 'кто за что отвечает' → ceo, developer, marketing, designer\n"
         f"- Код/техн → developer\n"
         f"- Запуск команд/тестов/скриптов → terminal\n"
         f"- Продвижение → marketing\n"
         f"- Дизайн → designer\n"
-        f"- Общий → developer, marketing, designer\n\n"
+        f"- Узкий вопрос конкретному агенту → только этот агент\n\n"
         f"Верни ТОЛЬКО JSON:\n"
-        f'{{"needs_clarification": false, "agents": ["developer"]}}\n'
+        f'{{"needs_clarification": false, "agents": ["ceo", "developer"]}}\n'
         f'или {{"needs_clarification": true, "question": "Вопрос"}}'
     )
     try:
@@ -79,7 +81,7 @@ async def _ceo_route(ceo_agent, message: str) -> dict:
     except Exception as e:
         logger.error(f"Route error: {e}")
         return {"needs_clarification": False,
-                "agents": ["developer", "marketing", "designer"]}
+                "agents": ["ceo", "developer", "marketing", "designer"]}
 
 
 async def _create_proposal_with_tests(
@@ -126,6 +128,9 @@ class TaskContext:
         self._responses: list = []
 
     def add(self, agent_name: str, response: str) -> None:
+        # Не сохраняем фоллбэки ("⚠️ перегружен") — они отравляют контекст и память
+        if response and response.lstrip().startswith("⚠️"):
+            return
         self._responses.append({"name": agent_name, "text": response})
         track_call(agent_name)
 
@@ -227,6 +232,7 @@ async def _run_agents(
 def make_orchestrator_handler(agents_and_bots: list) -> MessageHandler:
     ceo_agent, ceo_bot = agents_and_bots[0]
     all_agents_map = {
+        "ceo":       agents_and_bots[0],
         "developer": agents_and_bots[1],
         "marketing": agents_and_bots[2],
         "designer":  agents_and_bots[3],
