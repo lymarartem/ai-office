@@ -892,6 +892,28 @@ def make_issue_handler() -> CommandHandler:
     return CommandHandler("issue", issue_cmd)
 
 
+def make_forget_handler() -> CommandHandler:
+
+    async def forget_cmd(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        if update.message is None:
+            return
+        res = vmem.reset_all()
+        if res.get("ok"):
+            c = res["cleared"]
+            await update.message.reply_text(
+                f"🧹 Vector memory очищена.\n"
+                f"memories: {c.get('memories', 0)} · "
+                f"decisions: {c.get('decisions', 0)} · "
+                f"proposals: {c.get('proposals', 0)}"
+            )
+        else:
+            await update.message.reply_text(f"❌ {res.get('error', 'unknown')}")
+
+    return CommandHandler("forget", forget_cmd)
+
+
 def make_queue_handler(task_queue) -> CommandHandler:
 
     async def queue_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

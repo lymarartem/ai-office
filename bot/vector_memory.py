@@ -30,8 +30,16 @@ def _init():
         return False
 
 
+_BLACKLIST = ("spring boot", "spring-boot", "spring framework")
+
+
 def store_memory(text: str, source: str = "chat", meta: dict = None) -> str:
     if not _init():
+        return ""
+    # Не сохраняем галлюцинации Llama (Spring Boot не из нашего стека)
+    low = (text or "").lower()
+    if any(b in low for b in _BLACKLIST):
+        logger.info(f"[VectorMem] Пропущено (blacklist): {text[:60]}...")
         return ""
     uid = f"mem_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
     try:
@@ -44,6 +52,30 @@ def store_memory(text: str, source: str = "chat", meta: dict = None) -> str:
     except Exception as e:
         logger.error(f"[VectorMem] store_memory error: {e}")
     return uid
+
+
+def reset_all() -> dict:
+    """Полностью стирает все коллекции — chat memory, decisions, proposals."""
+    if not _init():
+        return {"ok": False, "error": "ChromaDB не инициализирован"}
+    cleared = {}
+    try:
+        from chromadb.config import Settings
+        global _memories, _decisions, _proposals
+        for name, coll in (("memories", _memories), ("decisions", _decisions), ("proposals", _proposals)):
+            try:
+                # Стираем все документы коллекции
+                all_ids = coll.get().get("ids", [])
+                if all_ids:
+                    coll.delete(ids=all_ids)
+                cleared[name] = len(all_ids)
+            except Exception as e:
+                cleared[name] = f"err: {e}"
+        logger.info(f"[VectorMem] reset_all: {cleared}")
+        return {"ok": True, "cleared": cleared}
+    except Exception as e:
+        logger.error(f"[VectorMem] reset_all error: {e}")
+        return {"ok": False, "error": str(e)}
 
 
 def store_decision(text: str, proposal_id: str = None) -> str:
