@@ -10,6 +10,7 @@ import bot.vector_memory as vmem
 import bot.planning as planning
 from bot.self_healing import get_breaker, retry
 from bot.event_bus import bus, Events
+from bot.rate_limiter import llm_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,9 @@ class BaseAgent:
         if history:
             messages.extend(history)
         messages.append({"role": "user", "content": message})
+
+        # Ждём токен у rate limiter — гарантирует ≤25 RPM к Groq, не упрёмся в 429
+        await llm_limiter.acquire()
 
         loop = asyncio.get_event_loop()
         try:
