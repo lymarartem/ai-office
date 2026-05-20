@@ -32,24 +32,17 @@ class BaseAgent:
             return f"⚠️ _{self.name} перегружен, попробуй позже._"
 
         # Контекст
-        from bot.plugins.registry import registry
         team_memory   = memory.as_context()
         goals_context = planning.build_goals_context()
         vector_ctx    = vmem.build_context(message)
-        tools_context = registry.list_for_agent()
+
+        # Инструменты не инжектим в промпт — Llama 3.3 ломает формат [TOOL:...]
+        # и текст утекает в чат. Tool-вызовы остаются доступны через прямые команды.
 
         system = self.role_prompt
-        extras = [team_memory, goals_context, vector_ctx, tools_context]
-        for extra in extras:
+        for extra in (team_memory, goals_context, vector_ctx):
             if extra:
                 system += f"\n\n{extra}"
-
-        if tools_context:
-            system += (
-                "\n\nЕсли нужно использовать инструмент — вставь в ответ:\n"
-                "[TOOL:tool_name(\"аргумент\")]\n"
-                "Система выполнит и вернёт результат."
-            )
 
         # Caveman Mode — режим экономии токенов
         from bot.caveman import caveman
@@ -68,8 +61,16 @@ class BaseAgent:
             )
             self._breaker.on_success()
 
-            # Обрабатываем вызовы инструментов
-            result = await self._process_tools(result)
+            # Чистим само-префикс ("Дэн (Dev):" в начале) — Llama любит подписываться сама
+            prefix_pat = re.compile(
+                rf"^(?:{re.escape(self.name)}\s*:\s*)+", re.IGNORECASE
+            )
+            result = prefix_pat.sub("", result).strip()
+
+            # Tool-вызовы из чата отключены — Llama ломает формат (передаёт \n как
+            # литералы), sandbox падает и ошибки утекают в чат. Tools доступны
+            # через прямые команды /run, /sandbox.
+            # result = await self._process_tools(result)
 
             # Статистика режима экономии
             caveman.record(result)
