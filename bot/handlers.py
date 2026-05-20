@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 from collections import defaultdict
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -167,6 +168,31 @@ class TaskContext:
         return "\n".join(f"[{r['name']}]: {r['text']}" for r in self._responses)
 
 
+# Краткие описания агентов для batch-промпта (полные промпты в agents/*.py
+# для отдельных вызовов; здесь нужны компактные версии чтобы один запрос помещался).
+_AGENT_DESCS = {
+    "ceo":       ("АЛЕКС",  "CEO. Координирует, иногда с иронией. Стек: Python/asyncio/FastAPI/ChromaDB/Render."),
+    "developer": ("ДЭН",    "Senior Dev. Технически, без воды. Только наш Python-стек. НЕ Spring/Java/Redis/Postgres."),
+    "marketing": ("МАРК",   "Head of Marketing. Цифры, каналы (TikTok/Reddit/PH), CAC/retention."),
+    "designer":  ("СОНЯ",   "UI/UX. Конкретные цвета #HEX, шрифты, Figma."),
+    "terminal":  ("ТЕРМ",   "Terminal. Запускает команды и тесты."),
+}
+
+# Парсер batch-ответа: ===NAME===\nтекст\n===NAME===\nтекст...
+_BATCH_SPLIT = re.compile(r"={3,}\s*([А-ЯA-Z][А-ЯA-Z\s]*?)\s*={3,}")
+
+
+def _parse_batch(text: str) -> dict[str, str]:
+    parts = _BATCH_SPLIT.split(text or "")
+    out: dict[str, str] = {}
+    for i in range(1, len(parts) - 1, 2):
+        name = parts[i].strip().upper()
+        body = parts[i + 1].strip()
+        if body:
+            out[name] = body
+    return out
+
+
 async def _run_agents(
     chat_id: int,
     full_user_msg: str,
@@ -176,24 +202,65 @@ async def _run_agents(
     ceo_bot,
     history: list,
 ) -> None:
+    """Batch-режим: один LLM-вызов на всех выбранных агентов вместо N отдельных.
+    Это ~5x снижение API-нагрузки и стабильная работа на free-тирах.
+    Реакции и proposal-check убраны — slot'ы только при явных командах.
+    """
     task_ctx = TaskContext(full_user_msg)
+    valid_pairs = [
+        (k, all_agents_map[k]) for k in selected_agents if k in all_agents_map
+    ]
+    if not valid_pairs:
+        return
 
-    for agent_key in selected_agents:
-        pair = all_agents_map.get(agent_key)
-        if not pair:
+    # Собираем batch-промпт
+    descs = "\n\n".join(
+        f"# {_AGENT_DESCS.get(k, (k.upper(), 'Эксперт'))[0]}\n"
+        f"{_AGENT_DESCS.get(k, (k.upper(), 'Эксперт'))[1]}"
+        for k, _ in valid_pairs
+    )
+    template = "\n\n".join(
+        f"==={_AGENT_DESCS.get(k, (k.upper(),))[0]}===\n[ответ]"
+        for k, _ in valid_pairs
+    )
+
+    batch_prompt = (
+        f"Запрос: {full_user_msg}\n\n"
+        f"Ответь ОТ ЛИЦА КАЖДОГО агента ниже в его стиле. "
+        f"Каждый — максимум 2 предложения, по делу.\n\n"
+        f"{descs}\n\n"
+        f"Формат строго (используй именно ЭТИ маркеры):\n\n{template}"
+    )
+
+    try:
+        batch_response = await ceo_agent.respond(
+            message=batch_prompt,
+            history=history[:-1] if history else None,
+        )
+    except Exception as e:
+        logger.error(f"[Batch] Ошибка запроса: {e}")
+        return
+
+    parsed = _parse_batch(batch_response)
+
+    # Отправляем каждому боту его кусок
+    for key, (agent, bot) in valid_pairs:
+        marker = _AGENT_DESCS.get(key, (key.upper(),))[0]
+        text = parsed.get(marker)
+        if not text:
+            logger.warning(f"[Batch] нет ответа для {marker}")
             continue
-        agent, bot = pair
-        await asyncio.sleep(random.uniform(1.5, 3.0))
+        task_ctx.add(agent.name, text)
         try:
-            response = await agent.respond(
-                message=task_ctx.build_prompt(), history=history[:-1]
-            )
-            task_ctx.add(agent.name, response)
             await bot.send_message(
-                chat_id=chat_id, text=response, parse_mode="Markdown"
+                chat_id=chat_id, text=text, parse_mode="Markdown"
             )
-        except Exception as e:
-            logger.error(f"[{agent_key}] Ошибка: {e}")
+        except Exception:
+            # Если Markdown сломался — шлём plain
+            try:
+                await bot.send_message(chat_id=chat_id, text=text)
+            except Exception as e:
+                logger.error(f"[Batch] send error {marker}: {e}")
 
     entry = task_ctx.as_assistant_entry()
     if entry:
@@ -201,34 +268,8 @@ async def _run_agents(
         chat_histories[chat_id] = _trim(chat_histories[chat_id])
         vmem.store_memory(entry, source="group_chat")
 
-    active_pairs = [all_agents_map[k] for k in selected_agents if k in all_agents_map]
-    if len(active_pairs) >= 2:
-        reactors = random.sample(active_pairs, k=min(2, len(active_pairs)))
-        await asyncio.sleep(2.0)
-        for agent, bot in reactors:
-            await asyncio.sleep(random.uniform(1.0, 2.5))
-            try:
-                reaction = await agent.respond(
-                    message=task_ctx.build_reaction_prompt(agent.name),
-                    history=chat_histories[chat_id],
-                )
-                if reaction.strip().upper() == PASS_SIGNAL:
-                    continue
-                await bot.send_message(
-                    chat_id=chat_id, text=f"↩️ {reaction}", parse_mode="Markdown"
-                )
-            except Exception as e:
-                logger.error(f"Reaction error: {e}")
-
-    await asyncio.sleep(2.0)
-    try:
-        raw   = await ceo_agent.respond(message=task_ctx.build_proposal_prompt())
-        clean = raw.strip().strip("```json").strip("```").strip()
-        data  = json.loads(clean)
-        if data.get("has_proposal"):
-            await _create_proposal_with_tests(ceo_agent, ceo_bot, chat_id, data)
-    except Exception as e:
-        logger.debug(f"Proposal не сгенерирован: {e}")
+    # Реакции и proposal-check убраны для стабильности (free-тиры).
+    # Proposal генерируется только через явный flow approval.
 
 
 def make_orchestrator_handler(agents_and_bots: list) -> MessageHandler:
