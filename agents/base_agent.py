@@ -30,7 +30,10 @@ class BaseAgent:
         self.model       = model
         self._breaker    = get_breaker(name)
 
-    @retry(max_attempts=3, backoff=2.0)
+    # @retry убран — гибрид Gemini+Groq уже сам делает fallback. Если retry активен,
+    # один вызов превращается в 6 API-хитов (3 попытки × 2 провайдера), что
+    # моментально выжигает rate limit и роняет систему в death spiral.
+    @retry(max_attempts=1, backoff=1.0)
     async def respond(self, message: str, history: list = None) -> str:
         if not self._breaker.can_call():
             logger.warning(f"[{self.name}] Circuit OPEN — fallback")
