@@ -8,6 +8,7 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 logger = logging.getLogger(__name__)
 
+GEMINI_API_KEY              = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY                = os.getenv("GROQ_API_KEY")
 CEO_BOT_TOKEN               = os.getenv("CEO_BOT_TOKEN")
 DEVELOPER_BOT_TOKEN         = os.getenv("DEVELOPER_BOT_TOKEN")
@@ -24,16 +25,26 @@ DISCUSSION_INTERVAL_MINUTES = int(os.getenv("DISCUSSION_INTERVAL_MINUTES", "180"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO  = os.getenv("GITHUB_REPO", "")  # формат: owner/repo
 
-# LLM-бэкенд — Groq (OpenAI-совместимый API)
-LLM_API_URL     = "https://api.groq.com/openai/v1/chat/completions"
-MODEL_CEO       = "llama-3.3-70b-versatile"
-MODEL_DEVELOPER = "llama-3.3-70b-versatile"
-MODEL_MARKETING = "llama-3.3-70b-versatile"
-MODEL_DESIGNER  = "llama-3.3-70b-versatile"
-MODEL_TERMINAL  = "llama-3.3-70b-versatile"
-MODEL_BROWSER   = "llama-3.3-70b-versatile"
+# Hybrid LLM: Gemini primary + Groq fallback. Оба OpenAI-совместимые.
+PRIMARY_API_URL  = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+PRIMARY_MODEL    = "gemini-2.0-flash"
+
+FALLBACK_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+FALLBACK_MODEL   = "llama-3.3-70b-versatile"
+
+# Backward compat — агенты импортят MODEL_* как primary
+MODEL_CEO       = PRIMARY_MODEL
+MODEL_DEVELOPER = PRIMARY_MODEL
+MODEL_MARKETING = PRIMARY_MODEL
+MODEL_DESIGNER  = PRIMARY_MODEL
+MODEL_TERMINAL  = PRIMARY_MODEL
+MODEL_BROWSER   = PRIMARY_MODEL
+
+# Backward compat — старый код мог импортить LLM_API_URL
+LLM_API_URL = PRIMARY_API_URL
 
 _required = {
+    "GEMINI_API_KEY":       GEMINI_API_KEY,
     "GROQ_API_KEY":         GROQ_API_KEY,
     "CEO_BOT_TOKEN":        CEO_BOT_TOKEN,
     "DEVELOPER_BOT_TOKEN":  DEVELOPER_BOT_TOKEN,

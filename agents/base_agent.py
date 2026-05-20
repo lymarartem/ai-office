@@ -4,13 +4,17 @@ import logging
 import re
 import requests
 
-from config import GROQ_API_KEY, LLM_API_URL
+from config import (
+    GEMINI_API_KEY, GROQ_API_KEY,
+    PRIMARY_API_URL, FALLBACK_API_URL,
+    FALLBACK_MODEL,
+)
 import bot.memory as memory
 import bot.vector_memory as vmem
 import bot.planning as planning
 from bot.self_healing import get_breaker, retry
 from bot.event_bus import bus, Events
-from bot.rate_limiter import llm_limiter
+from bot.rate_limiter import gemini_limiter, groq_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +59,32 @@ class BaseAgent:
             messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        # Ждём токен у rate limiter — гарантирует ≤25 RPM к Groq, не упрёмся в 429
-        await llm_limiter.acquire()
-
+        # Hybrid: пробуем Gemini (primary), при сбое — Groq (fallback).
+        # Каждый со своим rate limiter, чтобы не упираться в 429.
         loop = asyncio.get_event_loop()
+        max_tok = caveman.max_tokens()
+
         try:
+            await gemini_limiter.acquire()
             result = await loop.run_in_executor(
-                None, self._call_api, messages, caveman.max_tokens()
+                None, self._call_provider,
+                PRIMARY_API_URL, GEMINI_API_KEY, self.model, messages, max_tok,
             )
+        except Exception as primary_err:
+            logger.warning(
+                f"[{self.name}] Gemini не ответил ({primary_err}), fallback → Groq"
+            )
+            try:
+                await groq_limiter.acquire()
+                result = await loop.run_in_executor(
+                    None, self._call_provider,
+                    FALLBACK_API_URL, GROQ_API_KEY, FALLBACK_MODEL, messages, max_tok,
+                )
+            except Exception as fb_err:
+                self._breaker.on_failure(fb_err)
+                raise
+
+        try:
             self._breaker.on_success()
 
             # Чистим само-префикс ("Дэн (Dev):" в начале) — Llama любит подписываться сама
@@ -128,15 +150,18 @@ class BaseAgent:
 
         return result
 
-    def _call_api(self, messages: list, max_tokens: int = 400) -> str:
+    def _call_provider(
+        self, url: str, key: str, model: str, messages: list, max_tokens: int = 400
+    ) -> str:
+        """Универсальный вызов OpenAI-совместимого endpoint (Gemini или Groq)."""
         response = requests.post(
-            LLM_API_URL,
+            url,
             headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Authorization": f"Bearer {key}",
                 "Content-Type":  "application/json",
             },
             json={
-                "model":       self.model,
+                "model":       model,
                 "messages":    messages,
                 "max_tokens":  max_tokens,
                 "temperature": 0.85,

@@ -59,5 +59,11 @@ class TokenBucket:
         }
 
 
-# Глобальный лимитер для всех LLM-вызовов через base_agent
-llm_limiter = TokenBucket(rate_per_min=25)
+# Лимитеры по провайдерам
+# Gemini Free: 15 RPM — берём 12 с запасом
+gemini_limiter = TokenBucket(rate_per_min=12)
+# Groq Free: 30 RPM — берём 25 с запасом
+groq_limiter   = TokenBucket(rate_per_min=25)
+
+# Backward compat — старый код мог импортить llm_limiter
+llm_limiter = gemini_limiter
