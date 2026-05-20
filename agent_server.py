@@ -81,11 +81,12 @@ async def respond(agent_name: str, req: RespondRequest):
 
 def load_agents(agent_names: list[str]) -> None:
     agent_map = {
-        "developer": ("agents.developer", "DeveloperAgent"),
-        "marketing":  ("agents.marketing",  "MarketingAgent"),
-        "designer":   ("agents.designer",   "DesignerAgent"),
-        "terminal":   ("agents.terminal",   "TerminalAgent"),
-        "browser":    ("agents.browser",    "BrowserAgent"),
+        "developer": ("agents.developer",    "DeveloperAgent"),
+        "marketing":  ("agents.marketing",   "MarketingAgent"),
+        "designer":   ("agents.designer",    "DesignerAgent"),
+        "terminal":   ("agents.terminal",    "TerminalAgent"),
+        "browser":    ("agents.browser",     "BrowserAgent"),
+        "claude":     ("agents.claude_agent","ClaudeAgent"),
     }
     for name in agent_names:
         if name not in agent_map:
@@ -132,7 +133,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agents", nargs="+",
         default=["developer"],
-        choices=["developer", "marketing", "designer", "terminal", "browser"],
+        choices=["developer", "marketing", "designer", "terminal", "browser", "claude"],
         help="Какие агенты запустить",
     )
     parser.add_argument("--port", type=int, default=8081, help="Порт сервера")

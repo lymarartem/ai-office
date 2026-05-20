@@ -25,6 +25,9 @@ DISCUSSION_INTERVAL_MINUTES = int(os.getenv("DISCUSSION_INTERVAL_MINUTES", "180"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO  = os.getenv("GITHUB_REPO", "")  # формат: owner/repo
 
+# Anthropic Claude — опционально (для ClaudeAgent / remote-control)
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
 # Hybrid LLM: Gemini primary + Groq fallback. Оба OpenAI-совместимые.
 PRIMARY_API_URL  = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 PRIMARY_MODEL    = "gemini-2.0-flash"

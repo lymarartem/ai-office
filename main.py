@@ -52,6 +52,7 @@ from bot.plugins.tools import *
 import bot.git_manager as git
 import bot.logger_buffer as log_buffer
 from config import (
+    ANTHROPIC_API_KEY,
     CEO_BOT_TOKEN,
     DEVELOPER_BOT_TOKEN,
     MARKETING_BOT_TOKEN,
@@ -89,6 +90,13 @@ async def main() -> None:
     # Регистрируем в глобальном реестре
     for agent in [ceo, developer, marketing, designer, terminal, browser]:
         agent_registry.register_local(agent)
+
+    # ClaudeAgent — подключаем если есть ANTHROPIC_API_KEY
+    if ANTHROPIC_API_KEY:
+        from agents.claude_agent import ClaudeAgent
+        claude_agent = ClaudeAgent()
+        agent_registry.register_local(claude_agent)
+        logger.info("✅ Клод (Claude) — онлайн")
 
     # Подключаем удалённых агентов из .env
     # Формат: REMOTE_DEVELOPER=http://192.168.1.100:8081
