@@ -59,25 +59,27 @@ def _approval_keyboard(pid: str) -> InlineKeyboardMarkup:
 async def _ceo_route(ceo_agent, message: str) -> dict:
     prompt = (
         f"Сообщение: {message}\n\n"
-        f"Ты CEO. Реши:\n"
-        f"1. Нужно ли уточнение?\n"
-        f"2. Каких агентов вызвать? (ceo, developer, marketing, designer, terminal)\n\n"
+        f"Ты CEO. Решай, каких агентов вызвать. НЕ задавай уточняющих вопросов — "
+        f"сразу делегируй.\n\n"
+        f"Доступные агенты: ceo, developer, marketing, designer, terminal\n\n"
         f"Правила:\n"
         f"- Обращение к команде / стратегия / общий вопрос → ceo первым + остальные\n"
         f"- Представление / приветствие / 'кто за что отвечает' → ceo, developer, marketing, designer\n"
-        f"- Код/техн → developer\n"
+        f"- Код/техника → developer\n"
         f"- Запуск команд/тестов/скриптов → terminal\n"
         f"- Продвижение → marketing\n"
         f"- Дизайн → designer\n"
         f"- Узкий вопрос конкретному агенту → только этот агент\n\n"
         f"Верни ТОЛЬКО JSON:\n"
-        f'{{"needs_clarification": false, "agents": ["ceo", "developer"]}}\n'
-        f'или {{"needs_clarification": true, "question": "Вопрос"}}'
+        f'{{"agents": ["ceo", "developer"]}}'
     )
     try:
         raw   = await ceo_agent.respond(message=prompt)
         clean = raw.strip().strip("```json").strip("```").strip()
-        return json.loads(clean)
+        data  = json.loads(clean)
+        # Игнорируем любые попытки запросить уточнение
+        return {"needs_clarification": False,
+                "agents": data.get("agents") or ["ceo", "developer", "marketing", "designer"]}
     except Exception as e:
         logger.error(f"Route error: {e}")
         return {"needs_clarification": False,
