@@ -18,6 +18,38 @@ from bot.rate_limiter import gemini_limiter, groq_limiter
 
 logger = logging.getLogger(__name__)
 
+# Стек-страж: заменяем чужие технологии на реальный стек проекта.
+# Срабатывает после генерации ответа — детерминированно, не зависит от того,
+# как модель отнеслась к запретам в промпте.
+_STACK_SCRUB = [
+    (re.compile(r"\bSpring\s*Boot\b", re.IGNORECASE),     "FastAPI"),
+    (re.compile(r"\bSpring\b", re.IGNORECASE),            "FastAPI"),
+    (re.compile(r"\bDjango\b", re.IGNORECASE),            "FastAPI"),
+    (re.compile(r"\bFlask\b", re.IGNORECASE),             "FastAPI"),
+    (re.compile(r"\baiohttp\b", re.IGNORECASE),           "FastAPI"),
+    (re.compile(r"\bRedis\b", re.IGNORECASE),             "ChromaDB"),
+    (re.compile(r"\bPostgres(?:QL)?\b", re.IGNORECASE),   "ChromaDB"),
+    (re.compile(r"\bMySQL\b", re.IGNORECASE),             "ChromaDB"),
+    (re.compile(r"\bMongoDB\b", re.IGNORECASE),           "ChromaDB"),
+    (re.compile(r"\bSQLite\b", re.IGNORECASE),            "JSON-файлы"),
+    (re.compile(r"\bJava(?!Script)\b", re.IGNORECASE),    "Python"),
+    (re.compile(r"\bPHP\b", re.IGNORECASE),               "Python"),
+    (re.compile(r"\bRuby(?!\s*on)\b", re.IGNORECASE),     "Python"),
+    (re.compile(r"\b\.NET\b", re.IGNORECASE),             "Python"),
+    (re.compile(r"\bReact\b", re.IGNORECASE),             "Telegram UI"),
+    (re.compile(r"\bVue\.?(js)?\b", re.IGNORECASE),       "Telegram UI"),
+    (re.compile(r"\bNext\.?js\b", re.IGNORECASE),         "Telegram UI"),
+]
+
+
+def _scrub_stack(text: str) -> str:
+    """Заменяет упоминания технологий вне нашего стека на актуальные."""
+    if not text:
+        return text
+    for pat, repl in _STACK_SCRUB:
+        text = pat.sub(repl, text)
+    return text
+
 # Паттерн для вызова инструмента агентом
 # Агент пишет: [TOOL:tool_name("arg1", "arg2")]
 TOOL_PATTERN = re.compile(r'\[TOOL:(\w+)\(([^)]*)\)\]')
@@ -103,6 +135,10 @@ class BaseAgent:
                 rf"^(?:{re.escape(self.name)}\s*:\s*)+", re.IGNORECASE
             )
             result = prefix_pat.sub("", result).strip()
+
+            # Стек-страж — детерминированно убираем Spring/Redis/Flask/etc.
+            # Модель часто игнорирует запреты в промпте, особенно Gemini Flash.
+            result = _scrub_stack(result)
 
             # Tool-вызовы из чата отключены — Llama ломает формат (передаёт \n как
             # литералы), sandbox падает и ошибки утекают в чат. Tools доступны
