@@ -39,6 +39,12 @@ _STACK_SCRUB = [
     (re.compile(r"\bReact\b", re.IGNORECASE),             "Telegram UI"),
     (re.compile(r"\bVue\.?(js)?\b", re.IGNORECASE),       "Telegram UI"),
     (re.compile(r"\bNext\.?js\b", re.IGNORECASE),         "Telegram UI"),
+    # Placeholder-ссылки и выдуманные URL — модель часто их сочиняет
+    (re.compile(r"https?://(?:www\.)?example\.(?:com|org|net)\S*", re.IGNORECASE), "<ссылка-заглушка>"),
+    (re.compile(r"https?://(?:www\.)?foo\.\S*", re.IGNORECASE),                    "<ссылка-заглушка>"),
+    (re.compile(r"https?://(?:www\.)?bar\.\S*", re.IGNORECASE),                    "<ссылка-заглушка>"),
+    (re.compile(r"https?://(?:www\.)?yoursite\.\S*", re.IGNORECASE),               "<ссылка-заглушка>"),
+    (re.compile(r"https?://(?:www\.)?placeholder\.\S*", re.IGNORECASE),            "<ссылка-заглушка>"),
 ]
 
 
