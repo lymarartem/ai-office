@@ -62,8 +62,10 @@ class TokenBucket:
 # Лимитеры по провайдерам
 # Gemini Free: 15 RPM — берём 12 с запасом
 gemini_limiter = TokenBucket(rate_per_min=12)
-# Groq Free: 30 RPM — берём 25 с запасом
-groq_limiter   = TokenBucket(rate_per_min=25)
+# Groq Free: 30 RPM на бумаге, но TPM = 6000 — это реальный потолок при больших
+# промптах (batch на 4 агентов ≈ 2000 токенов = всего 3 req/min по TPM).
+# Снижаем до 15 RPM чтобы держаться в пределах TPM.
+groq_limiter   = TokenBucket(rate_per_min=15)
 
 # Backward compat — старый код мог импортить llm_limiter
 llm_limiter = gemini_limiter

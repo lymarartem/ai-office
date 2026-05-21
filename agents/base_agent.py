@@ -74,8 +74,16 @@ class BaseAgent:
                 PRIMARY_API_URL, GEMINI_API_KEY, self.model, messages, max_tok,
             )
         except Exception as primary_err:
+            # Подробнее логируем причину — особенно важно различать 429 (rate limit)
+            # и другие ошибки (404, 500, timeout)
+            err_detail = str(primary_err)
+            if hasattr(primary_err, "response") and primary_err.response is not None:
+                err_detail = (
+                    f"HTTP {primary_err.response.status_code} — "
+                    f"{primary_err.response.text[:200]}"
+                )
             logger.warning(
-                f"[{self.name}] Gemini не ответил ({primary_err}), fallback → Groq"
+                f"[{self.name}] Gemini fail: {err_detail} → fallback Groq"
             )
             try:
                 await groq_limiter.acquire()
